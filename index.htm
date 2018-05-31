@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script type="text/javascript" src="https://d3js.org/d3.v4.min.js"></script>
+<script type="text/javascript" src="https://unpkg.com/d3-3d/build/d3-3d.min.js"></script>
+<head>
+	<style type="text/css">
+		span {
+			position: absolute;
+			left: 10px;
+			top: 10px;
+		}
+	</style>
+</head>
+
+<body>
+	<svg id="svg" width="100" height="100" style="cursor: wait"></svg>
+	
+	
+	<span id="label"></span>
+	<script type="text/javascript">
+		const defaultOpacity = '0.8';
+	
+		function toNodeId(node) {
+			if (node.indexOf('es-data-') === 0 && node.indexOf('-test') !== -1) {
+				var start = node.indexOf('es-data-');
+				var end = node.indexOf('-test');
+				return parseInt(node.substring(start + 'es-data-'.length, end));
+			}
+			// implement your own node name to node # here
+		}
+	
+		$('#svg')
+			.attr('width', window.innerWidth)
+			.attr('height', window.innerHeight);
+		
+		$(document).keypress(function(e) {
+			if (e.keyCode === 39) {
+				// Right arrow key
+				e.preventDefault();
+				loadFile(++file % files.length);
+			} else if (e.keyCode === 37) {
+				// Left arrow key
+				e.preventDefault();
+				loadFile(--file % files.length);
+			}
+		});
+
+		var cubesData = [];
+		var file = 0;
+		var colors;
+		
+		// Files created using GET /_cat/shards?format=json&h=index,node
+		const files = ['shards201805231020.json', 'shards201805231050.json', 'shards201805231120.json', 'shards201805231151.json', 'shards201805231221.json', 'shards201805231251.json', 'shards201805231321.json', 'shards201805231351.json', 'shards201805231422.json', 'shards201805231452.json', 'shards201805231522.json', 'shards201805231552.json', 'shards201805231622.json', 'shards201805231652.json', 'shards201805231722.json', 'shards201805231752.json', 'shards201805231823.json', 'shards201805231853.json', 'shards201805231923.json', 'shards201805231953.json', 'shards201805232023.json', 'shards201805232053.json', 'shards201805232123.json', 'shards201805232153.json', 'shards201805232223.json', 'shards201805232253.json', 'shards201805232323.json', 'shards201805232353.json', 'shards201805240023.json', 'shards201805240053.json', 'shards201805240123.json', 'shards201805240153.json', 'shards201805240223.json', 'shards201805240253.json'];
+
+		var origin = [window.innerWidth / 2, window.innerHeight / 2], scale = 6, alpha = 0, beta = 0, startAngle = Math.PI/6;
+		var svg    = d3.select('svg')
+			.call(d3.drag()
+				.on('drag', dragged)
+				.on('start', dragStart)
+				.on('end', dragEnd))
+			.append('g');
+
+		var maxShards = 0;
+		var cubesGroup = svg.append('g')
+			.attr('class', 'cubes');
+
+		var mx, my, mouseX, mouseY;
+
+		var cubes3D = d3._3d()
+			.shape('CUBE')
+			.x(function(d){ return d.x; })
+			.y(function(d){ return d.y; })
+			.z(function(d){ return d.z; })
+			.rotateY( startAngle)
+			.rotateX(-startAngle)
+			.origin(origin)
+			.scale(scale);
+
+		function processData(data, tt){
+
+			/* --------- CUBES ---------*/
+			var cubes = cubesGroup.selectAll('g.cube').data(data, function(d){
+				return d.id;
+			});
+
+			var ce = cubes
+				.enter()
+				.append('g')
+				.attr('class', 'cube')
+				.attr('fill', function(d) {
+					return colors(-d.height);
+				})
+				.attr('opacity', defaultOpacity)
+				.attr('stroke', function(d) {
+					const color = colors(-d.height);
+					return d3.color(color).darker(2);
+				})
+				.on('mouseover', function(d) {
+					$('#label').text('Index ' + d.index + ', node ' + d.nodeId + ', ' + (-d.height) + ' shards');
+					d3.select(this).attr('opacity', '1.0');
+				})
+				.on('mouseout', function(d) {
+					d3.select(this).attr('opacity', defaultOpacity);
+				})
+				.merge(cubes)
+				.attr('fill', function(d) {
+					return colors(-d.height);
+				})
+				.attr('stroke', function(d) {
+					const color = colors(-d.height);
+					return d3.color(color).darker(2);
+				})
+				.sort(cubes3D.sort);
+
+			cubes.exit().remove();
+
+			/* --------- FACES ---------*/
+			var faces = ce.selectAll('path.face').data(function(d){ return d.faces; }, function(d){ return d.face; });
+
+			faces.enter()
+				.append('path')
+				.attr('class', 'face')
+				.attr('fill-opacity', 0.95)
+				.classed('_3d', true)
+				.merge(faces)
+				.transition().duration(tt)
+				.attr('d', cubes3D.draw);
+
+			faces.exit().remove();
+
+			/* --------- SORT TEXT & FACES ---------*/
+
+			ce.selectAll('._3d').sort(d3._3d().sort);
+			
+			$('#svg').css('cursor', 'auto');
+		}
+
+		function dragStart(){
+			mx = d3.event.x;
+			my = d3.event.y;
+		}
+
+		function dragged(){
+			mouseX = mouseX || 0;
+			mouseY = mouseY || 0;
+			beta   = (d3.event.x - mx + mouseX) * Math.PI / 230;
+			alpha  = (d3.event.y - my + mouseY) * Math.PI / 230  * (-1);
+			processData(cubes3D.rotateY(beta + startAngle).rotateX(alpha - startAngle)(cubesData), 0);
+		}
+
+		function dragEnd(){
+			mouseX = d3.event.x - mx + mouseX;
+			mouseY = d3.event.y - my + mouseY;
+		}
+
+		function makeCube(h, x, z){
+			return [
+				{x: x - 1, y: h, z: z + 1}, // FRONT TOP LEFT
+				{x: x - 1, y: 0, z: z + 1}, // FRONT BOTTOM LEFT
+				{x: x + 1, y: 0, z: z + 1}, // FRONT BOTTOM RIGHT
+				{x: x + 1, y: h, z: z + 1}, // FRONT TOP RIGHT
+				{x: x - 1, y: h, z: z - 1}, // BACK  TOP LEFT
+				{x: x - 1, y: 0, z: z - 1}, // BACK  BOTTOM LEFT
+				{x: x + 1, y: 0, z: z - 1}, // BACK  BOTTOM RIGHT
+				{x: x + 1, y: h, z: z - 1}, // BACK  TOP RIGHT
+			];
+		}
+		
+		function loadFile(i) {
+			$('#svg').css('cursor', 'wait');
+
+			return $.ajax('testdata/' + files[i], {
+				type: 'GET',
+				dataType: 'text',
+				crossDomain: true
+			}).pipe(function (text) {
+				const shards = JSON.parse(text);
+
+				var minNodes = -1;
+				var maxNodes = 0;
+				cubesData = [];
+				var bars = {};
+
+				$.each(shards, function(i, shard) {
+					if (shard.index && shard.node) {
+						var node = toNodeId(shard.node);
+						if (!node) {
+							// console.log('Missing shard for index ' + shard.index);
+							return;
+						}
+						
+						if (!bars[shard.index]) {
+							bars[shard.index] = {};
+						}
+						
+						if (!bars[shard.index][node]) {
+							bars[shard.index][node] = 0;
+						}
+						
+						bars[shard.index][node]++;
+
+						maxShards = Math.max(maxShards, bars[shard.index][node]);
+						maxNodes = Math.max(maxNodes, node);
+						minNodes = minNodes == -1 ? node : Math.min(minNodes, node);
+					}
+				});
+				
+				
+				colors = d3.scaleLinear()
+					.domain([1, maxShards + 1])
+					.range(['#1a9850', '#d73027'])
+					.interpolate(d3.interpolateHsl);
+
+				var indices = Object.keys(bars);
+				indices.sort();
+
+				for (var indexCount = 0, x = indices.length / -2; indexCount < indices.length; indexCount++, x++) {
+					var index = indices[indexCount];
+					var barNodes = bars[index];
+					for (var nodeId = minNodes, y = (maxNodes - minNodes) / -2; nodeId <= maxNodes; nodeId++, y++) {
+						var indexShards = barNodes[nodeId];
+						if (indexShards) {
+							var height = -indexShards;
+							var cube = makeCube(height, x * 4, y * 4);
+							cube.id = 'cube_' + index + '_' + nodeId;
+							cube.height = height;
+							cube.index = index;
+							cube.nodeId = nodeId;
+							cubesData.push(cube);
+						}
+					}
+				}
+				
+				$('#label').text(files[i]);
+				processData(cubes3D(cubesData), 2000);
+				
+				setTimeout(function() {
+					loadFile(++file % files.length);
+				}, 4000);
+			});
+		}
+
+		loadFile(file);
+	</script>
+</body>
