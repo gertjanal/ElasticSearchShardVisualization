@@ -1,6 +1,6 @@
 # ElasticSearch shard distribution visualization
 
-Live demo available at: [gertjanal.github.io/ElasticSearchShardVisualization](https://gertjanal.github.io/ElasticSearchShardVisualization)
+Live demo available at: [gertjanal.github.io/ElasticSearchShardVisualization](https://gertjanal.github.io/ElasticSearchShardVisualization/index.html)
 
 ## Introduction
 At one point, we reached the ElasticSearch cluster nodes limits in terms of disk and memory usage.
