@@ -1,4 +1,4 @@
-# ElasticSearch shards distribution visualization
+# ElasticSearch shard distribution visualization
 
 Live demo available at: [gertjanal.github.io/ElasticSearchShardVisualization](https://gertjanal.github.io/ElasticSearchShardVisualization)
 
